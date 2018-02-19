@@ -20,8 +20,8 @@ from __future__ import print_function
 
 import numpy as np
 import tensorflow as tf
+import lstm2d
 from tensorflow.python.framework import test_util
-lstm2d = tf.contrib.ndlstm.lstm2d
 
 
 def _rand(*size):
@@ -41,7 +41,7 @@ class Lstm2DTest(test_util.TensorFlowTestCase):
   def testSequenceToImagesDims(self):
     with self.test_session():
       inputs = tf.constant(_rand(11, 14, 5))
-      outputs = lstm2d.sequence_to_images(inputs, 2)
+      outputs = lstm2d.sequence_to_images(inputs, 7)
       tf.global_variables_initializer().run()
       result = outputs.eval()
       self.assertEqual(tuple(result.shape), (2, 7, 11, 5))
@@ -51,7 +51,7 @@ class Lstm2DTest(test_util.TensorFlowTestCase):
       size = (2, 7, 11, 5)
       inputs = tf.constant(_rand(*size))
       sequence = lstm2d.images_to_sequence(inputs)
-      outputs = lstm2d.sequence_to_images(sequence, size[0])
+      outputs = lstm2d.sequence_to_images(sequence, size[1])
       tf.global_variables_initializer().run()
       result = outputs.eval()
       self.assertEqual(tuple(result.shape), size)

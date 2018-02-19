@@ -19,7 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 # pylint: disable=wildcard-import,g-importing-member
-from tfndlstm.lstm1d import *
-from tfndlstm.lstm2d import *
-from tfndlstm.misc import *
+from lstm1d import *
+from lstm2d import *
+from misc import *
 # pylint: enable=wildcard-import

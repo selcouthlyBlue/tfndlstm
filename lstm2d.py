@@ -23,7 +23,7 @@ from __future__ import print_function
 
 
 import tensorflow as tf
-from tfndlstm import lstm1d
+import lstm1d
 
 
 def _shape(tensor):
@@ -31,36 +31,47 @@ def _shape(tensor):
   return tensor.get_shape().as_list()
 
 
-def images_to_sequence(tensor):
+def images_to_sequence(inputs, data_format='NHWC'):
   """Convert a batch of images into a batch of sequences.
-
   Args:
-    tensor: a (num_images, height, width, depth) tensor
-
+    inputs: a (num_images, height, width, depth) tensor
+    data_format: A string. `NHWC` (default) and `NCHW` are supported.
   Returns:
     (width, num_images*height, depth) sequence tensor
   """
+  if data_format not in ('NHWC', 'NCHW'):
+    raise ValueError('data_format has to be either NCHW or NHWC.')
+  df = ('channels_first'
+        if data_format and data_format.startswith('NC') else 'channels_last')
+  if df == 'channels_first':
+    inputs = tf.transpose(inputs, [0, 2, 3, 1])
+  _, _, width, depth = _shape(inputs)
+  s = tf.shape(inputs)
+  batch_size, height = s[0], s[1]
+  transposed = tf.transpose(inputs, [2, 0, 1, 3])
+  return tf.reshape(transposed, [width, batch_size * height, depth])
 
-  num_image_batches, height, width, depth = _shape(tensor)
-  transposed = tf.transpose(tensor, [2, 0, 1, 3])
-  return tf.reshape(transposed, [width, num_image_batches * height, depth])
 
-
-def sequence_to_images(tensor, num_image_batches):
+def sequence_to_images(inputs, height, output_data_format='channels_last'):
   """Convert a batch of sequences into a batch of images.
-
   Args:
-    tensor: (num_steps, num_batches, depth) sequence tensor
-    num_image_batches: the number of image batches
-
+    inputs: (num_steps, num_batches, depth) sequence tensor
+    height: the height of the images
+    output_data_format: Format of output tensor.
+      Currently supports `'channels_first'` and `'channels_last'`.
   Returns:
-    (num_images, height, width, depth) tensor
+    A tensor representing the output of the operation.
   """
-
-  width, num_batches, depth = _shape(tensor)
-  height = num_batches // num_image_batches
-  reshaped = tf.reshape(tensor, [width, num_image_batches, height, depth])
-  return tf.transpose(reshaped, [1, 2, 0, 3])
+  width, num_batches, depth = _shape(inputs)
+  if num_batches is None:
+    num_batches = -1
+  else:
+    num_batches = num_batches // height
+  reshaped = tf.reshape(inputs, [width, num_batches, height, depth])
+  if output_data_format == 'channels_first':
+    return tf.transpose(reshaped, [1, 3, 2, 0])
+  else:
+    return tf.transpose(reshaped, [1, 2, 0, 3])
 
 
 def horizontal_lstm(images, num_filters_out, scope=None):
@@ -76,7 +87,7 @@ def horizontal_lstm(images, num_filters_out, scope=None):
     num_steps is width and new num_batches is num_image_batches * height
   """
   with tf.variable_scope(scope, "HorizontalLstm", [images]):
-    batch_size, _, _, _ = _shape(images)
+    _, height, _, _ = _shape(images)
     sequence = images_to_sequence(images)
     with tf.variable_scope("lr"):
       hidden_sequence_lr = lstm1d.ndlstm_base(sequence, num_filters_out // 2)
@@ -85,8 +96,8 @@ def horizontal_lstm(images, num_filters_out, scope=None):
           lstm1d.ndlstm_base(sequence,
                              num_filters_out - num_filters_out // 2,
                              reverse=1))
-    output_sequence = tf.concat(2, [hidden_sequence_lr, hidden_sequence_rl])
-    output = sequence_to_images(output_sequence, batch_size)
+    output_sequence = tf.concat([hidden_sequence_lr, hidden_sequence_rl], 2)
+    output = sequence_to_images(output_sequence, height)
     return output
 
 
