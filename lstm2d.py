@@ -31,20 +31,13 @@ def _shape(tensor):
   return tensor.get_shape().as_list()
 
 
-def images_to_sequence(inputs, data_format='NHWC'):
+def images_to_sequence(inputs):
   """Convert a batch of images into a batch of sequences.
   Args:
     inputs: a (num_images, height, width, depth) tensor
-    data_format: A string. `NHWC` (default) and `NCHW` are supported.
   Returns:
     (width, num_images*height, depth) sequence tensor
   """
-  if data_format not in ('NHWC', 'NCHW'):
-    raise ValueError('data_format has to be either NCHW or NHWC.')
-  df = ('channels_first'
-        if data_format and data_format.startswith('NC') else 'channels_last')
-  if df == 'channels_first':
-    inputs = tf.transpose(inputs, [0, 2, 3, 1])
   _, _, width, depth = _shape(inputs)
   s = tf.shape(inputs)
   batch_size, height = s[0], s[1]
@@ -52,12 +45,11 @@ def images_to_sequence(inputs, data_format='NHWC'):
   return tf.reshape(transposed, [width, batch_size * height, depth])
 
 
-def sequence_to_images(inputs, height, output_data_format='channels_last'):
+def sequence_to_images(inputs, height):
   """Convert a batch of sequences into a batch of images.
   Args:
     inputs: (num_steps, num_batches, depth) sequence tensor
     height: the height of the images
-    output_data_format: Format of output tensor.
       Currently supports `'channels_first'` and `'channels_last'`.
   Returns:
     A tensor representing the output of the operation.
@@ -68,10 +60,7 @@ def sequence_to_images(inputs, height, output_data_format='channels_last'):
   else:
     num_batches = num_batches // height
   reshaped = tf.reshape(inputs, [width, num_batches, height, depth])
-  if output_data_format == 'channels_first':
-    return tf.transpose(reshaped, [1, 3, 2, 0])
-  else:
-    return tf.transpose(reshaped, [1, 2, 0, 3])
+  return tf.transpose(reshaped, [1, 2, 0, 3])
 
 
 def horizontal_lstm(images, num_filters_out, scope=None):
@@ -101,27 +90,34 @@ def horizontal_lstm(images, num_filters_out, scope=None):
     return output
 
 
-def separable_lstm(images, num_filters_out, nhidden=None, scope=None):
+def separable_lstm(inputs, num_filters_out, nhidden=None, data_format='NHWC', scope=None):
   """Run bidirectional LSTMs first horizontally then vertically.
 
   Args:
-    images: (num_images, height, width, depth) tensor
+    inputs: (batch_size, height, width, depth) tensor
     num_filters_out: output layer depth
-    nhidden: hidden layer depth
+    nhidden: hidden layer depth,
+    data_format: A string. `NHWC` (default) and `NCHW` are supported.
     scope: optional scope name
-
   Returns:
     (num_images, height, width, num_filters_out) tensor
   """
-  with tf.variable_scope(scope, "SeparableLstm", [images]):
+  with tf.variable_scope(scope, "SeparableLstm", [inputs]):
+    if data_format not in ('NHWC', 'NCHW'):
+      raise ValueError('data_format has to be either NCHW or NHWC.')
+    df = ('channels_last'
+          if data_format and data_format.startswith('NH') else 'channels_first')
+    if df == 'channels_first':
+      inputs = tf.transpose(inputs, [0, 2, 3, 1])
     if nhidden is None:
       nhidden = num_filters_out
-    hidden = horizontal_lstm(images, nhidden)
+    hidden = horizontal_lstm(inputs, nhidden)
     with tf.variable_scope("vertical"):
       transposed = tf.transpose(hidden, [0, 2, 1, 3])
       output_transposed = horizontal_lstm(transposed, num_filters_out)
-    output = tf.transpose(output_transposed, [0, 2, 1, 3])
-    return output
+    if df == 'channels_last':
+      return tf.transpose(output_transposed, [0, 2, 1, 3])
+    return tf.transpose(output_transposed, [0, 3, 2, 1])
 
 
 def reduce_to_sequence(images, num_filters_out, scope=None):

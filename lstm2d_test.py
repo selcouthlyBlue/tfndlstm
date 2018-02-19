@@ -56,6 +56,13 @@ class Lstm2DTest(test_util.TensorFlowTestCase):
       result = outputs.eval()
       self.assertEqual(tuple(result.shape), size)
 
+  def testSeparableLstmDimsInvalidDataFormat(self):
+    with self.test_session():
+      inputs = tf.constant(_rand(2, 7, 11, 5))
+      with self.assertRaisesRegexp(ValueError,
+                                   'data_format has to be either NCHW or NHWC.'):
+        lstm2d.separable_lstm(inputs, 8, data_format="CHWN")
+
   def testSeparableLstmDims(self):
     with self.test_session():
       inputs = tf.constant(_rand(2, 7, 11, 5))
@@ -63,6 +70,14 @@ class Lstm2DTest(test_util.TensorFlowTestCase):
       tf.global_variables_initializer().run()
       result = outputs.eval()
       self.assertEqual(tuple(result.shape), (2, 7, 11, 8))
+
+  def testSeparableLstmDimsNCHW(self):
+    with self.test_session():
+      inputs = tf.constant(_rand(2, 5, 7, 11))
+      outputs = lstm2d.separable_lstm(inputs, 8, data_format='NCHW')
+      tf.global_variables_initializer().run()
+      result = outputs.eval()
+      self.assertEqual(tuple(result.shape), (2, 8, 7, 11))
 
   def testReduceToSequenceDims(self):
     with self.test_session():
