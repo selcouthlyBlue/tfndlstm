@@ -21,11 +21,8 @@ from __future__ import print_function
 
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
-from tensorflow.python.platform import flags
 
-
-flags.DEFINE_bool("unrolled_lstm", False,
-                  "use a statically unrolled LSTM instead of dynamic_rnn")
+from tensorflow.contrib import slim
 
 
 def _shape(tensor):
@@ -158,7 +155,7 @@ def sequence_to_final(inputs, noutput, scope=None, name=None, reverse=False):
     return outputs
 
 
-def sequence_softmax(inputs, noutput, scope=None, name=None, linear_name=None):
+def sequence_softmax(inputs, noutput, scope=None, name=None):
   """Run a softmax layer over all the time steps of an input sequence.
 
   Args:
@@ -176,16 +173,9 @@ def sequence_softmax(inputs, noutput, scope=None, name=None, linear_name=None):
   inputs_u = tf.unstack(inputs)
   output_u = []
   with tf.variable_scope(scope, "SequenceSoftmax", [inputs]):
-    initial_w = tf.truncated_normal([0 + ninputs, noutput], stddev=0.1)
-    initial_b = tf.constant(0.1, shape=[noutput])
-    w = tf.contrib.framework.model_variable("weights", initializer=initial_w)
-    b = tf.contrib.framework.model_variable("biases", initializer=initial_b)
     for i in xrange(length):
       with tf.variable_scope(scope, "SequenceSoftmaxStep", [inputs_u[i]]):
-        # TODO(tmb) consider using slim.fully_connected(...,
-        # activation_fn=tf.nn.softmax)
-        linear = tf.nn.xw_plus_b(inputs_u[i], w, b, name=linear_name)
-        output = tf.nn.softmax(linear)
+        output = slim.fully_connected(inputs_u[i], noutput, weights_initializer=slim.xavier_initializer())
         output_u += [output]
     outputs = tf.stack(output_u, name=name)
   return outputs

@@ -20,7 +20,8 @@ from __future__ import print_function
 
 import numpy as np
 import tensorflow as tf
-lstm1d = tf.contrib.ndlstm.lstm1d
+
+import lstm1d
 
 
 def _rand(*size):
