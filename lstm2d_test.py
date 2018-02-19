@@ -79,6 +79,32 @@ class Lstm2DTest(test_util.TensorFlowTestCase):
       result = outputs.eval()
       self.assertEqual(tuple(result.shape), (2, 8, 7, 11))
 
+  def testSeparableLstmUnsupportedCellType(self):
+    with self.test_session():
+      inputs = tf.constant(_rand(2, 5, 7, 11))
+      cell_type = "unsupported cell type"
+      with self.assertRaisesRegexp(NotImplementedError,
+                                   cell_type + " not supported by ndlstm."):
+        lstm2d.separable_lstm(inputs, 8, data_format='NCHW', cell_type=cell_type)
+
+  def testSeparableGLstmDims(self):
+    with self.test_session():
+      inputs = tf.constant(_rand(2, 5, 7, 11))
+      outputs = lstm2d.separable_lstm(inputs, 8, data_format='NCHW',
+                                      cell_type='GLSTM')
+      tf.global_variables_initializer().run()
+      result = outputs.eval()
+      self.assertEqual(tuple(result.shape), (2, 8, 7, 11))
+
+  def testSeparableGruDims(self):
+    with self.test_session():
+      inputs = tf.constant(_rand(2, 5, 7, 11))
+      outputs = lstm2d.separable_lstm(inputs, 8, data_format='NCHW',
+                                      cell_type='GRU')
+      tf.global_variables_initializer().run()
+      result = outputs.eval()
+      self.assertEqual(tuple(result.shape), (2, 8, 7, 11))
+
   def testReduceToSequenceDims(self):
     with self.test_session():
       inputs = tf.constant(_rand(2, 7, 11, 5))

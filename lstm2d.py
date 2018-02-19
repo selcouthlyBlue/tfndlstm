@@ -25,6 +25,8 @@ from __future__ import print_function
 import tensorflow as tf
 import lstm1d
 
+from tensorflow.contrib import rnn, slim
+
 
 def _shape(tensor):
   """Get the shape of a tensor as an int list."""
@@ -63,13 +65,24 @@ def sequence_to_images(inputs, height):
   return tf.transpose(reshaped, [1, 2, 0, 3])
 
 
-def horizontal_lstm(images, num_filters_out, scope=None):
+def _get_cell(num_units, cell_type='LSTM'):
+  if cell_type == 'LSTM':
+      return rnn.LSTMCell(num_units, initializer=slim.xavier_initializer())
+  if cell_type == 'GLSTM':
+      return rnn.GLSTMCell(num_units, initializer=slim.xavier_initializer())
+  if cell_type == 'GRU':
+      return rnn.GRUCell(num_units, kernel_initializer=slim.xavier_initializer())
+  raise NotImplementedError(cell_type + " not supported by ndlstm.")
+
+
+def horizontal_lstm(images, num_filters_out, cell_type='LSTM', scope=None):
   """Run an LSTM bidirectionally over all the rows of each image.
 
   Args:
     images: (num_images, height, width, depth) tensor
     num_filters_out: output depth
     scope: optional scope name
+    cell_type: type of rnn cell to use.
 
   Returns:
     (num_images, height, width, num_filters_out) tensor, where
@@ -78,19 +91,18 @@ def horizontal_lstm(images, num_filters_out, scope=None):
   with tf.variable_scope(scope, "HorizontalLstm", [images]):
     _, height, _, _ = _shape(images)
     sequence = images_to_sequence(images)
-    with tf.variable_scope("lr"):
-      hidden_sequence_lr = lstm1d.ndlstm_base(sequence, num_filters_out // 2)
-    with tf.variable_scope("rl"):
-      hidden_sequence_rl = (
-          lstm1d.ndlstm_base(sequence,
-                             num_filters_out - num_filters_out // 2,
-                             reverse=1))
-    output_sequence = tf.concat([hidden_sequence_lr, hidden_sequence_rl], 2)
+    outputs, _ = tf.nn.bidirectional_dynamic_rnn(
+        _get_cell(num_filters_out // 2, cell_type),
+        _get_cell(num_filters_out // 2, cell_type),
+        sequence,
+        dtype=sequence.dtype)
+    output_sequence = tf.concat(outputs, 2)
     output = sequence_to_images(output_sequence, height)
     return output
 
 
-def separable_lstm(inputs, num_filters_out, nhidden=None, data_format='NHWC', scope=None):
+def separable_lstm(inputs, num_filters_out, nhidden=None, cell_type='LSTM',
+                   data_format='NHWC', scope=None):
   """Run bidirectional LSTMs first horizontally then vertically.
 
   Args:
@@ -98,6 +110,7 @@ def separable_lstm(inputs, num_filters_out, nhidden=None, data_format='NHWC', sc
     num_filters_out: output layer depth
     nhidden: hidden layer depth,
     data_format: A string. `NHWC` (default) and `NCHW` are supported.
+    cell_type: type of rnn cell to use.
     scope: optional scope name
   Returns:
     (num_images, height, width, num_filters_out) tensor
@@ -111,7 +124,7 @@ def separable_lstm(inputs, num_filters_out, nhidden=None, data_format='NHWC', sc
       inputs = tf.transpose(inputs, [0, 2, 3, 1])
     if nhidden is None:
       nhidden = num_filters_out
-    hidden = horizontal_lstm(inputs, nhidden)
+    hidden = horizontal_lstm(inputs, nhidden, cell_type=cell_type)
     with tf.variable_scope("vertical"):
       transposed = tf.transpose(hidden, [0, 2, 1, 3])
       output_transposed = horizontal_lstm(transposed, num_filters_out)
