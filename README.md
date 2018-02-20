@@ -17,8 +17,7 @@ The library currently provides:
 # Other Dimensions
 
 There is 1D LSTM code in `lstm1d.py`. This code implements 1D LSTM versions
-suitable as a basis for higher dimensional LSTMs. It is intended for constant
-batch size and uses a different layout.  Although the code is perfectly fine for
+suitable as a basis for higher dimensional LSTMs. Although the code is perfectly fine for
 1D use, you may find other 1D LSTM implementations to be more convenient if you
 are interested in sequence problems.
 
