@@ -47,20 +47,13 @@ class Lstm1DTest(tf.test.TestCase):
       inputs = tf.constant(_rand(*size))
       outputs = lstm1d.ndlstm_base(inputs, 8, dynamic=False)
       tf.global_variables_initializer().run()
-      gradients = tf.gradients(outputs, inputs)
-      if 1:  # pylint: disable=using-constant-test
-        gradients = tf.gradients(outputs, inputs)[0].eval()
-        self.assertEqual(gradients.shape, size)
-      else:
-        # TODO(tmb) tf.test.compute_gradient error is currently broken
-        # with dynamic_rnn. Enable this test case eventually.
-        err = tf.test.compute_gradient_error(inputs,
-                                             size,
-                                             outputs,
-                                             output_size,
-                                             delta=1e-4)
-        self.assert_(not np.isnan(err))
-        self.assert_(err < 0.1)
+      err = tf.test.compute_gradient_error(inputs,
+                                           size,
+                                           outputs,
+                                           output_size,
+                                           delta=1e-4)
+      self.assert_(not np.isnan(err))
+      self.assert_(err < 0.1)
 
   def testSequenceToSequenceGradientReverse(self):
     with self.test_session():
@@ -69,19 +62,13 @@ class Lstm1DTest(tf.test.TestCase):
       inputs = tf.constant(_rand(*size))
       outputs = lstm1d.ndlstm_base(inputs, 8, reverse=1, dynamic=False)
       tf.global_variables_initializer().run()
-      if 1:  # pylint: disable=using-constant-test
-        gradients = tf.gradients(outputs, inputs)[0].eval()
-        self.assertEqual(gradients.shape, size)
-      else:
-        # TODO(tmb) tf.test.compute_gradient error is currently broken
-        # with dynamic_rnn. Enable this test case eventually.
-        err = tf.test.compute_gradient_error(inputs,
-                                             size,
-                                             outputs,
-                                             output_size,
-                                             delta=1e-4)
-        self.assert_(not np.isnan(err))
-        self.assert_(err < 0.1)
+      err = tf.test.compute_gradient_error(inputs,
+                                           size,
+                                           outputs,
+                                           output_size,
+                                           delta=1e-4)
+      self.assert_(not np.isnan(err))
+      self.assert_(err < 0.1)
 
   def testSequenceToFinalDims(self):
     with self.test_session():
